@@ -19,7 +19,7 @@ class Teacher(User):
 class TeacherProfile(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     picture = models.ImageField(null=True, blank=True, upload_to="images/")
-    teacher_id = models.IntegerField(null=True, blank=True)
+    teacher_id = models.CharField(null=True, blank=True, max_length=20)
     courses = models.ManyToManyField(Course, through='CourseTeacher', related_name="teachers")
 
     def __str__(self) -> str:
@@ -40,4 +40,4 @@ class CourseTeacher(models.Model):
 @receiver(post_save, sender=Teacher)
 def create_user_profile(sender, instance, created, **kwargs):
     if created and instance.role == "STAFF":
-        TeacherProfile.objects.create(user=instance)
+        TeacherProfile.objects.create(user=instance, teacher_id=kwargs['teacher_id'])

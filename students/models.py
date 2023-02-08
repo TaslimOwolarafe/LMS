@@ -18,7 +18,7 @@ class Student(User):
 class StudentProfile(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     picture = models.ImageField(null=True, blank=True, upload_to="images/")
-    student_id = models.IntegerField(null=True, blank=True)
+    student_id = models.CharField(null=True, blank=True, max_length=20)
     courses = models.ManyToManyField(Course, through='CourseStudent', related_name="students")
 
     def __str__(self) -> str:
@@ -35,4 +35,4 @@ class CourseStudent(models.Model):
 @receiver(post_save, sender=Student)
 def create_user_profile(sender, instance, created, **kwargs):
     if created and instance.role == "STUDENT":
-        StudentProfile.objects.create(user=instance)
+        StudentProfile.objects.create(user=instance, student_id=kwargs['student_id'])

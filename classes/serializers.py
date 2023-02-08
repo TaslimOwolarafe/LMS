@@ -67,6 +67,7 @@ class StudentInlineSerializer(serializers.Serializer):
         course = self.context['view'].kwargs['pk']
         course = Course.objects.get(id=course)
         data.update({
+            'student_id' : StudentProfile.objects.get(user=instance).student_id,
             'picture': student.picture or None,
             'id' : student.student_id or None,
             'studentship' : StudentshipDetailViewSerializer(CourseStudent.objects.get(student__user=instance, course=course), context=self.context).data
