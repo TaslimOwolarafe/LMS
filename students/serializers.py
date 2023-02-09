@@ -78,4 +78,4 @@ class UserInlineSerilizer(serializers.Serializer):
 
 class StudentProfileInlineSerializer(serializers.Serializer):
     user = UserInlineSerilizer()
-    student_id = serializers.IntegerField()
+    student_id = serializers.CharField()

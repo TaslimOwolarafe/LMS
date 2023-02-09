@@ -33,7 +33,7 @@ class QuizAPIView(ListCreateAPIView):
         else:
             return
 
-class QuizUpdateView(RetrieveUpdateAPIView):
+class QuizUpdateView(RetrieveUpdateDestroyAPIView):
     """
     Updates Quiz name with questions
 
@@ -267,20 +267,50 @@ class QuizDetailAPIView(RetrieveAPIView):
     #     if self.action == "update":
     #         return 
     #     return QuizCreateSerializer
+    def get(self, request, *args, **kwargs):
+        quiz = self.get_object()
+        if self.request.user.role == "STUDENT":
+            student_id = StudentProfile.objects.filter(user=self.request.user.id).first()
+            quiz_solution = QuizSolution.objects.filter(quiz=quiz, student=student_id).first()
+            print(vars(quiz_solution))
+            data = QuizSolutionDetailSerializer(quiz_solution).data if hasattr(quiz_solution, 'id') else {"detail":"not found"}
+        if self.request.user.role == "STAFF":
+            teacher_id = TeacherProfile.objects.filter(user=self.request.user.id).first()
+            quiz_solution = QuizSolution.objects.filter(quiz=quiz).all()
+            data = QuizSolutionDetailSerializer(quiz_solution, many=True).data
+        return Response(data=data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         if request.user.role != "STUDENT":
             return Response({'detail':'forbidden'}, status=status.HTTP_403_FORBIDDEN)
         student = StudentProfile.objects.get(user=request.user)
         quiz = self.get_object()
-        solution = QuizSolution.objects.create(quiz=quiz, student=student)
-        solution.refresh_from_db()
+        solution = QuizSolution.objects.get(quiz=quiz, student=student)
+        if hasattr(solution, 'id'):
+            solution.refresh_from_db()
+        else:
+            solution = QuizSolution.objects.create(quiz=quiz, student=student)
+            solution.refresh_from_db()
         if 'answers' in request.data:
             for answer in request.data['answers']:
-                question = Question.objects.get((answer['question_id']))
-                answer_choice = AnswerChoice.objects.get((answer['answer_choice_id']))
-                answer = Answer.objects.create(quiz_solution=solution, question=question, body=answer_choice)
-                answer.refresh_from_db()
+                question = Question.objects.get(pk=answer['question_id'])
+                answer_choice = AnswerChoice.objects.get(pk=answer['answer_choice_id'])
+                # answer = Answer.objects.get_or_create(quiz_solution=solution, question=question, body=answer_choice)
+                answer = Answer.objects.get(quiz_solution=solution, question=question)
+                if hasattr(answer, 'id'):
+                    answer.body = answer_choice
+                    answer.save()
+                    answer.refresh_from_db()
+                else:
+                    answer = Answer.objects.create(quiz_solution=solution, question=question, body=answer_choice)
+                    answer.refresh_from_db()
+
+                # answer.refresh_from_db()
+            # solution.refresh_from_db()
+            quiz_solution = solution
+            data = QuizSolutionDetailSerializer(quiz_solution).data
+            return Response(data=data, status=status.HTTP_201_CREATED) 
+        return Response({'detail':'an error occured.'}, status=status.HTTP_400_BAD_REQUEST)
         
 
 class QuizSolutionDetailAPIView(RetrieveAPIView):

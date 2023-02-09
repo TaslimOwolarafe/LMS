@@ -4,6 +4,7 @@ from rest_framework import serializers
 from .models import Question, Quiz, QuizSolution, Answer, AnswerChoice, Score
 from classes.serializers import CourseInlineSerializer
 from classes.models import Course
+from students.serializers import StudentProfileInlineSerializer
 
 class AnswerChoicesField(serializers.RelatedField):
     def to_representation(self, value):
@@ -51,7 +52,7 @@ class QuizRemoveQuestionsSerializer(Serializer):
 class AnswerChoiceSerializer(ModelSerializer):
     class Meta:
         model = AnswerChoice
-        fields = ('body',)
+        fields = ('id','body',)
 
 class QuizSolutionCreateSerializer(ModelSerializer):
     class Meta:
@@ -69,18 +70,25 @@ class AnswerCreateSerializer(ModelSerializer):
         fields = (
             'quiz_solution', 'question', 'body',
         )
+class QuestionInlineSerializer(Serializer):
+    id = serializers.CharField()
+    body = serializers.CharField()
 
 class AnswerSerializer(ModelSerializer):
     # status = serializers.SerializerMethodField(read_only=True, source='correct')
+    question = QuestionInlineSerializer()
+    body = AnswerChoiceSerializer()
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data.update({
-            'correct_answer': instance.question.correct_answer,
-            # 'status': self.status
+            'correct_answer': AnswerChoiceSerializer(instance.question.correct_answer).data,
+            'status': instance.correct()
         })
+        return data
     class Meta:
         model = Answer
-        fields = ('quiz_solution', 'question', 'body', 'status',)
+        fields = ('quiz_solution', 'question', 'body',)
 
     def get_status(self, obj):
         if not hasattr(obj, 'id'):
@@ -119,15 +127,17 @@ class UserProfileField(serializers.RelatedField):
 
 class QuizSolutionDetailSerializer(Serializer):
     quiz = QuizInlineSerializer(read_only=True)
-    student = UserProfileField(read_only=True)
+    student = StudentProfileInlineSerializer(read_only=True)
 
     def to_representation(self, instance):
         data = super(QuizSolutionDetailSerializer, self).to_representation(instance)
         answers = Answer.objects.filter(quiz_solution=instance)
         data.update({
             'answers': AnswerSerializer(answers, many=True, context=self.context).data,
-            'score': len([x.id for x in answers if x.correct()])
+            'score': len([x.id for x in answers if x.correct()]),
+            'total_questions' : instance.quiz.questions.count()
         })
+        return data
 
 class RemoveQuestionSerializer(Serializer):
     questions = serializers.ListField(write_only=True)
